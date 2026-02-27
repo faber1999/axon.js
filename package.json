@@ -1,5 +1,5 @@
 {
-  "name": "axon.js",
+  "name": "@faber1999/axon.js",
   "version": "0.1.0",
   "description": "A fine-grained reactive frontend framework with JSX",
   "type": "module",
