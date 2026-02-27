@@ -83,6 +83,9 @@ function applyProp(el: Element, key: string, value: unknown): void {
     else el.removeAttribute(key);
   } else if (key === 'innerHTML') {
     el.innerHTML = value as string;
+  } else if (key === 'value') {
+    // Must set DOM property directly — setAttribute only sets the initial/default value
+    (el as HTMLInputElement).value = value == null ? '' : String(value);
   } else {
     if (value == null || value === false) {
       el.removeAttribute(key);
