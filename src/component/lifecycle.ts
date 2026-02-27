@@ -8,6 +8,7 @@
  */
 
 import type { ComponentOwner, ComponentFn } from '../types.ts';
+import { effectStack } from '../reactivity/effect.ts';
 
 // Stack of active component owners — mirrors the component call stack
 const ownerStack: ComponentOwner[] = [];
@@ -35,11 +36,16 @@ export function runOwned<T>(fn: () => T): [T, ComponentOwner] {
   if (parent) parent._children.push(owner);
 
   ownerStack.push(owner);
+  // Pause parent effect tracking during component render.
+  // Signal reads in the render phase should NOT subscribe parent effects —
+  // only effects explicitly created with effect() inside the component should track signals.
+  const savedEffects = effectStack.splice(0);
   let result!: T;
   try {
     result = fn();
   } finally {
     ownerStack.pop();
+    effectStack.push(...savedEffects);
   }
 
   queueMicrotask(() => {
