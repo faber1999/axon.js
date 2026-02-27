@@ -31,12 +31,7 @@ Components run **once**. Only the exact DOM nodes that depend on a signal update
 
 ```bash
 npm install @faber1999/axon.js
-```
-
-You also need Vite and TypeScript as dev dependencies:
-
-```bash
-npm install -D vite typescript
+npm install -D @faber1999/vite-plugin-axon vite typescript
 ```
 
 ### Vite setup
@@ -45,13 +40,10 @@ npm install -D vite typescript
 
 ```ts
 import { defineConfig } from 'vite'
+import axon from '@faber1999/vite-plugin-axon'
 
 export default defineConfig({
-  esbuild: {
-    jsxFactory: 'h',
-    jsxFragment: 'Fragment',
-    jsxInject: `import { h, Fragment } from '@faber1999/axon.js/jsx'`
-  }
+  plugins: [axon()],
 })
 ```
 
@@ -75,9 +67,15 @@ export default defineConfig({
 }
 ```
 
-The last three `jsx*` options are the only ones specific to axon.js. The rest is standard Vite + TypeScript configuration.
+The three `jsx*` options are the only ones specific to axon.js. The rest is standard Vite + TypeScript configuration.
 
-That's it. No plugins, no Babel, no extra config.
+The Vite plugin configures JSX automatically and enables reactive expressions in JSX attributes:
+
+```tsx
+// Works out of the box — no need to wrap in arrow functions
+<div class={`btn ${active() ? 'btn-active' : ''}`} />
+<button disabled={count() === 0}>-1</button>
+```
 
 ---
 
