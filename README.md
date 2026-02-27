@@ -4,7 +4,7 @@ A fine-grained reactive frontend framework built from scratch.
 JSX syntax · Signals reactivity · Router · Store · No Virtual DOM · Zero dependencies.
 
 ```tsx
-import { signal, createApp } from 'axon.js'
+import { signal, createApp } from '@faber1999/axon.js'
 
 function Counter() {
   const [count, setCount] = signal(0)
@@ -27,7 +27,13 @@ Components run **once**. Only the exact DOM nodes that depend on a signal update
 ## Installation
 
 ```bash
-npm install axon.js
+npm install @faber1999/axon.js
+```
+
+You also need Vite and TypeScript as dev dependencies:
+
+```bash
+npm install -D vite typescript
 ```
 
 ### Vite setup
@@ -41,7 +47,7 @@ export default defineConfig({
   esbuild: {
     jsxFactory: 'h',
     jsxFragment: 'Fragment',
-    jsxInject: `import { h, Fragment } from 'axon.js/jsx'`
+    jsxInject: `import { h, Fragment } from '@faber1999/axon.js/jsx'`
   }
 })
 ```
@@ -51,13 +57,22 @@ export default defineConfig({
 ```json
 {
   "compilerOptions": {
+    "target": "ES2020",
+    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "noEmit": true,
+    "allowImportingTsExtensions": true,
+    "strict": true,
     "jsx": "preserve",
     "jsxFactory": "h",
-    "jsxFragmentFactory": "Fragment",
-    "strict": true
-  }
+    "jsxFragmentFactory": "Fragment"
+  },
+  "include": ["src"]
 }
 ```
+
+The last three `jsx*` options are the only ones specific to axon.js. The rest is standard Vite + TypeScript configuration.
 
 That's it. No plugins, no Babel, no extra config.
 
@@ -68,7 +83,7 @@ That's it. No plugins, no Babel, no extra config.
 ### Reactivity
 
 ```ts
-import { signal, effect, computed, batch, untrack } from 'axon.js'
+import { signal, effect, computed, batch, untrack } from '@faber1999/axon.js'
 
 // signal — reactive value
 const [count, setCount] = signal(0)
@@ -101,7 +116,7 @@ effect(() => {
 ### JSX & Components
 
 ```tsx
-import { onMount, onCleanup, createApp } from 'axon.js'
+import { onMount, onCleanup, createApp } from '@faber1999/axon.js'
 
 function Timer() {
   const [seconds, setSeconds] = signal(0)
@@ -120,7 +135,7 @@ createApp(Timer).mount('#app')
 ### Control flow
 
 ```tsx
-import { Show, For, Dynamic, Portal } from 'axon.js'
+import { Show, For, Dynamic, Portal } from '@faber1999/axon.js'
 
 // Conditional rendering
 <Show when={isLoggedIn} fallback={<Login />}>
@@ -144,7 +159,7 @@ import { Show, For, Dynamic, Portal } from 'axon.js'
 ### Router
 
 ```tsx
-import { createRouter, RouterView, Link, useRouter, useParams } from 'axon.js'
+import { createRouter, RouterView, Link, useRouter, useParams } from '@faber1999/axon.js'
 
 createRouter(
   [
@@ -204,7 +219,7 @@ const navigate = useNavigate() // navigate('/path')
 ### Store
 
 ```ts
-import { createStore, select } from 'axon.js'
+import { createStore, select } from '@faber1999/axon.js'
 
 interface AppState {
   theme: 'dark' | 'light'
@@ -231,7 +246,7 @@ Multiple independent stores are supported — just call `createStore` multiple t
 ### Context
 
 ```tsx
-import { createContext } from 'axon.js'
+import { createContext } from '@faber1999/axon.js'
 
 const ThemeContext = createContext<'dark' | 'light'>('dark')
 
