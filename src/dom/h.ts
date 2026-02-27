@@ -38,6 +38,16 @@ declare global {
   }
 }
 
+// ── SVG support ───────────────────────────────────────────────────────────────
+
+const SVG_NS = 'http://www.w3.org/2000/svg';
+const SVG_ELEMENTS = new Set([
+  'svg', 'path', 'circle', 'rect', 'ellipse', 'line', 'polyline', 'polygon',
+  'g', 'defs', 'use', 'symbol', 'text', 'tspan', 'image', 'clipPath',
+  'mask', 'filter', 'linearGradient', 'radialGradient', 'stop', 'marker',
+  'pattern', 'foreignObject', 'animate', 'animateTransform',
+]);
+
 // ── Prop application ──────────────────────────────────────────────────────────
 
 const BOOLEAN_ATTRS = new Set([
@@ -51,7 +61,8 @@ type MutableRef<T> = { current: T | null };
 
 function applyProp(el: Element, key: string, value: unknown): void {
   if (key === 'class' || key === 'className') {
-    (el as HTMLElement).className = (value as string) ?? '';
+    // SVGElement.className is SVGAnimatedString, so always use setAttribute
+    el.setAttribute('class', (value as string) ?? '');
   } else if (key === 'style') {
     if (typeof value === 'string') {
       (el as HTMLElement).style.cssText = value;
@@ -170,8 +181,10 @@ export function h(
     return runWithOwner(type as ComponentFn, componentProps);
   }
 
-  // Native DOM element
-  const el = document.createElement(type);
+  // Native DOM element (SVG elements need createElementNS)
+  const el = SVG_ELEMENTS.has(type)
+    ? document.createElementNS(SVG_NS, type)
+    : document.createElement(type);
 
   // Apply props
   if (props) {

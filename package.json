@@ -1,6 +1,6 @@
 {
   "name": "@faber1999/axon.js",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "A fine-grained reactive frontend framework with JSX",
   "author": "Faber Grajales Hincapié <faber1999> (https://github.com/faber1999)",
   "repository": {
