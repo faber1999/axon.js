@@ -1,0 +1,29 @@
+{
+  "name": "axon.js",
+  "version": "0.1.0",
+  "description": "A fine-grained reactive frontend framework with JSX",
+  "type": "module",
+  "license": "MIT",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "type-check": "tsc --noEmit"
+  },
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./jsx": {
+      "import": "./dist/jsx.js",
+      "types": "./dist/jsx.d.ts"
+    }
+  },
+  "devDependencies": {
+    "tsup": "^8.0.0",
+    "typescript": "^5.0.0",
+    "vite": "^5.0.0"
+  }
+}
