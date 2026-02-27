@@ -1,0 +1,9 @@
+<svg width="120" height="120" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- A legs -->
+  <path d="M10 90 L50 12 L90 90" stroke="#7c3aed" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- Signal wave crossbar -->
+  <path d="M26 58 C 34 44, 42 72, 50 58 C 58 44, 66 72, 74 58" stroke="#7c3aed" stroke-width="5" stroke-linecap="round" fill="none"/>
+  <!-- Signal node at apex -->
+  <circle cx="50" cy="12" r="5" fill="#7c3aed"/>
+  <circle cx="50" cy="12" r="9" stroke="#7c3aed" stroke-width="2" opacity="0.3"/>
+</svg>

@@ -1,4 +1,7 @@
-# axon.js
+<div align="center">
+  <img src="./logo.svg" width="80" alt="axon.js logo" />
+  <h1>axon.js</h1>
+</div>
 
 A fine-grained reactive frontend framework built from scratch.
 JSX syntax · Signals reactivity · Router · Store · No Virtual DOM · Zero dependencies.
