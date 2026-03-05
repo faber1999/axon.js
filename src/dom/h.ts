@@ -196,8 +196,15 @@ export function h(
       if (key === 'children') continue; // handled below
 
       if (typeof value === 'function' && !key.startsWith('on')) {
-        // Reactive prop: re-apply whenever the getter's value changes
-        effect(() => applyProp(el, key, (value as () => unknown)()));
+        // Reactive prop: re-apply whenever the getter's value changes.
+        // If the function returns another function (e.g. the plugin wrapped a
+        // getter-returning call like t('key') → () => t('key')), unwrap one
+        // extra level so the final resolved value reaches applyProp.
+        effect(() => {
+          let resolved = (value as () => unknown)();
+          if (typeof resolved === 'function') resolved = (resolved as () => unknown)();
+          applyProp(el, key, resolved);
+        });
       } else {
         applyProp(el, key, value);
       }

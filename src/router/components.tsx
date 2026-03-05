@@ -49,7 +49,6 @@ export function RouterView(): DocumentFragment {
     Comp: ComponentFn,
     params: Record<string, string>,
     layout: (typeof router.routes)[number]['layout'],
-    parent: Node,
     token: number,
   ): void {
     // Abort if the user navigated away while the lazy module was loading.
@@ -74,14 +73,17 @@ export function RouterView(): DocumentFragment {
     }
 
     currentOwner = owner;
+    // Re-read end.parentNode at insertion time — for lazy components the .then()
+    // callback runs after h() has moved `end` from the DocumentFragment into the
+    // real DOM, so the `parent` captured at effect-run time is stale.
+    const insertParent = end.parentNode;
+    if (!insertParent) return;
     const nodes = Array.isArray(result) ? result.flat() : [result];
-    nodes.forEach(n => { if (n != null) parent.insertBefore(n, end); });
+    nodes.forEach(n => { if (n != null) insertParent.insertBefore(n, end); });
   }
 
   effect(() => {
     const path = router.pathname(); // Subscribe to pathname changes
-    const parent = end.parentNode;
-    if (!parent) return;
 
     // Invalidate any in-flight lazy loads from the previous navigation.
     const token = ++renderToken;
@@ -91,10 +93,11 @@ export function RouterView(): DocumentFragment {
       disposeOwner(currentOwner);
       currentOwner = null;
     }
+    const parent = start.parentNode;
     let node = start.nextSibling;
     while (node && node !== end) {
       const next = node.nextSibling;
-      parent.removeChild(node);
+      parent?.removeChild(node);
       node = next;
     }
 
@@ -125,9 +128,9 @@ export function RouterView(): DocumentFragment {
 
       if (isLazy(route.component)) {
         // Async path: load the module, then mount. Nothing renders until it resolves.
-        route.component().then(Comp => mountComponent(Comp, params, route.layout, parent, token));
+        route.component().then(Comp => mountComponent(Comp, params, route.layout, token));
       } else {
-        mountComponent(route.component, params, route.layout, parent, token);
+        mountComponent(route.component, params, route.layout, token);
       }
       return;
     }
@@ -187,9 +190,29 @@ export function Link({ href, replace = false, class: cls, activeClass, children 
 
   const appendChildren = (parent: Node, child: JSXChild): void => {
     if (child == null) return;
-    if (Array.isArray(child)) child.forEach(c => appendChildren(parent, c as JSXChild));
-    else if (child instanceof Node) parent.appendChild(child);
-    else parent.appendChild(document.createTextNode(String(child)));
+    if (Array.isArray(child)) { child.forEach(c => appendChildren(parent, c as JSXChild)); return; }
+    if (child instanceof Node) { parent.appendChild(child); return; }
+    if (typeof child === 'function') {
+      // Reactive child — same marker pattern as h()'s appendChild
+      const startMarker = document.createComment('');
+      const endMarker = document.createComment('');
+      parent.appendChild(startMarker);
+      parent.appendChild(endMarker);
+      effect(() => {
+        let result: JSXChild = (child as () => JSXChild)();
+        let node = startMarker.nextSibling;
+        while (node && node !== endMarker) {
+          const next = node.nextSibling;
+          parent.removeChild(node);
+          node = next;
+        }
+        if (result == null) return;
+        const text = result instanceof Node ? result : document.createTextNode(String(result));
+        parent.insertBefore(text, endMarker);
+      });
+      return;
+    }
+    parent.appendChild(document.createTextNode(String(child)));
   };
 
   appendChildren(el, children as JSXChild);
