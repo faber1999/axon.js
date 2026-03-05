@@ -12,9 +12,44 @@ import type { Getter, ComponentFn, JSXChild } from '../types.ts';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
+/**
+ * A lazy-loaded component. Created with the `lazy()` helper.
+ * The loader is called once on first navigation; the result is cached.
+ */
+export type LazyComponentLoader = {
+  (): Promise<ComponentFn>;
+  readonly __axonLazy: true;
+};
+
 export interface RouteConfig {
   path: string;
-  component: ComponentFn;
+  component: ComponentFn | LazyComponentLoader;
+}
+
+/**
+ * Wraps a dynamic import so the router can load the component on first navigation.
+ * The resolved module is cached — subsequent navigations to the same route are instant.
+ *
+ * @example
+ * createRouter([
+ *   { path: '/',      component: Home },
+ *   { path: '/heavy', component: lazy(() => import('./pages/Heavy')) },
+ * ])
+ */
+export function lazy(
+  loader: () => Promise<{ default: ComponentFn } | ComponentFn>
+): LazyComponentLoader {
+  let cached: ComponentFn | null = null;
+
+  const fn = async (): Promise<ComponentFn> => {
+    if (!cached) {
+      const mod = await loader();
+      cached = typeof mod === 'function' ? mod : (mod as { default: ComponentFn }).default;
+    }
+    return cached;
+  };
+
+  return Object.assign(fn, { __axonLazy: true as const });
 }
 
 /**
@@ -55,7 +90,9 @@ export interface RouteGroup {
 /** Union of a flat route and a route group. Pass this to `createRouter`. */
 export type RouteDefinition = RouteConfig | RouteGroup;
 
-export interface CompiledRoute extends RouteConfig {
+export interface CompiledRoute {
+  path: string;
+  component: ComponentFn | LazyComponentLoader;
   regex: RegExp;
   paramNames: string[];
   layout?: ComponentFn<{ children?: JSXChild }>;

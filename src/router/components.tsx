@@ -5,7 +5,12 @@
 import { effect } from '../reactivity/effect.ts';
 import { runOwned, runWithOwner, disposeOwner } from '../component/lifecycle.ts';
 import { useRouter } from './router.ts';
-import type { JSXChild, ComponentOwner } from '../types.ts';
+import type { LazyComponentLoader } from './router.ts';
+import type { JSXChild, ComponentOwner, ComponentFn } from '../types.ts';
+
+function isLazy(component: unknown): component is LazyComponentLoader {
+  return typeof component === 'function' && (component as LazyComponentLoader).__axonLazy === true;
+}
 
 // ── RouterView ────────────────────────────────────────────────────────────────
 
@@ -36,11 +41,50 @@ export function RouterView(): DocumentFragment {
   // Tracks the last path that successfully passed all guards and rendered.
   // Used to restore the previous location when a guard denies navigation.
   let lastValidPath: string | null = null;
+  // Incremented on every route change — lets async renders detect stale loads.
+  let renderToken = 0;
+
+  /** Insert DOM nodes for a resolved component between the comment markers. */
+  function mountComponent(
+    Comp: ComponentFn,
+    params: Record<string, string>,
+    layout: (typeof router.routes)[number]['layout'],
+    parent: Node,
+    token: number,
+  ): void {
+    // Abort if the user navigated away while the lazy module was loading.
+    if (token !== renderToken) return;
+
+    let result: Node | Node[] | null;
+    let owner: ComponentOwner;
+
+    if (layout) {
+      const Layout = layout;
+      [result, owner] = runOwned(() =>
+        Layout({ children: (() => runWithOwner(Comp, { params })) as JSXChild })
+      );
+    } else {
+      [result, owner] = runOwned(() => Comp({ params }));
+    }
+
+    // One more stale-check: a synchronous navigation could have fired by now.
+    if (token !== renderToken) {
+      disposeOwner(owner);
+      return;
+    }
+
+    currentOwner = owner;
+    const nodes = Array.isArray(result) ? result.flat() : [result];
+    nodes.forEach(n => { if (n != null) parent.insertBefore(n, end); });
+  }
 
   effect(() => {
     const path = router.pathname(); // Subscribe to pathname changes
     const parent = end.parentNode;
     if (!parent) return;
+
+    // Invalidate any in-flight lazy loads from the previous navigation.
+    const token = ++renderToken;
 
     // Dispose and clear the previous route's component tree
     if (currentOwner) {
@@ -78,29 +122,13 @@ export function RouterView(): DocumentFragment {
       // ── Render ─────────────────────────────────────────────────────────────
       lastValidPath = path; // Guard passed — remember this as the last valid location
       const params = router.params();
-      let result: Node | Node[] | null;
-      let owner: ComponentOwner;
 
-      if (route.layout) {
-        // The layout receives `children` as a lazy function.
-        // When the layout calls {children} in its JSX, axon wraps it in an
-        // effect — that effect calls children(), which calls runWithOwner for
-        // the page component. At that point the layout's owner is still in
-        // ownerStack, so the page owner becomes a child of the layout owner.
-        // Disposing the layout owner cascades to the page owner automatically.
-        const Layout = route.layout;
-        const Page = route.component;
-        [result, owner] = runOwned(() =>
-          Layout({ children: (() => runWithOwner(Page, { params })) as JSXChild })
-        );
+      if (isLazy(route.component)) {
+        // Async path: load the module, then mount. Nothing renders until it resolves.
+        route.component().then(Comp => mountComponent(Comp, params, route.layout, parent, token));
       } else {
-        [result, owner] = runOwned(() => route.component({ params }));
+        mountComponent(route.component, params, route.layout, parent, token);
       }
-
-      currentOwner = owner; // Track for cleanup on next navigation
-
-      const nodes = Array.isArray(result) ? result.flat() : [result];
-      nodes.forEach(n => { if (n != null) parent.insertBefore(n, end); });
       return;
     }
   });

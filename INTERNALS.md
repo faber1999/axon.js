@@ -38,9 +38,10 @@
    - 7.2 [Los signals del router](#72-los-signals-del-router)
    - 7.3 [navigate()](#73-navigate)
    - 7.4 [RouterView — guards, layouts y lifecycle](#74-routerview--guards-layouts-y-lifecycle)
-   - 7.5 [Link](#75-link)
-   - 7.6 [View Transitions](#76-view-transitions)
-   - 7.7 [Helpers del router: useParams, useNavigate, currentRoute](#77-helpers-del-router-useparams-usenavigate-currentroute)
+   - 7.5 [Lazy loading — lazy()](#75-lazy-loading--lazy)
+   - 7.6 [Link](#76-link)
+   - 7.7 [View Transitions](#77-view-transitions)
+   - 7.8 [Helpers del router: useParams, useNavigate, currentRoute](#78-helpers-del-router-useparams-usenavigate-currentroute)
 8. [El store global](#8-el-store-global)
    - 8.1 [createStore — arquitectura interna](#81-createstore--arquitectura-interna)
    - 8.2 [El Proxy como interfaz](#82-el-proxy-como-interfaz)
@@ -1346,7 +1347,90 @@ La conexión clave: `router.pathname()` en el efecto crea una suscripción. Cuan
 
 ---
 
-### 7.5 Link
+### 7.5 Lazy loading — lazy()
+
+**Archivo:** [`src/router/router.ts`](src/router/router.ts)
+
+Por defecto todas las rutas se cargan de forma eagerly — el bundle contiene todos los componentes aunque el usuario nunca visite esa ruta. `lazy()` permite cargar un módulo solo cuando se navega a esa ruta por primera vez, reduciendo el bundle inicial.
+
+#### API
+
+```ts
+import { createRouter, lazy } from '@faber1999/axon.js'
+
+createRouter([
+  { path: '/',        component: Home },
+  { path: '/settings', component: lazy(() => import('./pages/Settings')) },
+])
+```
+
+`lazy()` recibe un loader — una función que retorna un `import()` dinámico — y devuelve un `LazyComponentLoader`:
+
+```ts
+export type LazyComponentLoader = {
+  (): Promise<ComponentFn>;
+  readonly __axonLazy: true;   // marca interna para que RouterView lo detecte
+};
+```
+
+#### Implementación
+
+```ts
+export function lazy(loader: () => Promise<{ default: ComponentFn } | ComponentFn>): LazyComponentLoader {
+  let cached: ComponentFn | null = null;
+
+  const fn = async (): Promise<ComponentFn> => {
+    if (!cached) {
+      const mod = await loader();
+      cached = typeof mod === 'function' ? mod : mod.default;
+    }
+    return cached;
+  };
+
+  return Object.assign(fn, { __axonLazy: true as const });
+}
+```
+
+Dos detalles importantes:
+
+1. **Caché**: el módulo se carga una sola vez. La segunda navegación a la misma ruta es instantánea.
+2. **Compatibilidad con `export default` y named export**: acepta tanto `{ default: Comp }` (lo que retorna `import()` normalmente) como la función directamente.
+
+#### Cómo RouterView maneja el caso lazy
+
+`RouterView` detecta si el componente es lazy por la marca `__axonLazy`:
+
+```ts
+function isLazy(component: unknown): component is LazyComponentLoader {
+  return typeof component === 'function' && component.__axonLazy === true;
+}
+```
+
+Y usa un **token numérico anti-stale** para evitar que una carga lenta monte el componente equivocado si el usuario navega rápido:
+
+```ts
+let renderToken = 0;
+
+effect(() => {
+  const token = ++renderToken; // nuevo token en cada navegación
+  // ... limpiar DOM anterior ...
+
+  if (isLazy(route.component)) {
+    route.component().then(Comp => {
+      if (token !== renderToken) return; // el usuario ya navegó a otro lado
+      mountComponent(Comp, params, route.layout, parent, token);
+    });
+  } else {
+    mountComponent(route.component, params, route.layout, parent, token);
+  }
+});
+```
+
+Si el usuario navega a `/settings` (lazy, 200ms de carga) y luego rápidamente a `/` antes de que resuelva, el token habrá cambiado y el `.then()` de Settings simplemente no hace nada.
+
+---
+
+### 7.6 Link
 
 ```js
 export function Link({ href, replace = false, class: cls, activeClass, children }) {
@@ -1384,7 +1468,7 @@ export function Link({ href, replace = false, class: cls, activeClass, children 
 
 ---
 
-### 7.6 View Transitions
+### 7.7 View Transitions
 
 **Archivos:** [`src/dom/transitions.ts`](src/dom/transitions.ts), [`src/router/router.ts`](src/router/router.ts)
 
@@ -1469,7 +1553,7 @@ La regla `root` ya está desactivada por el framework. El usuario no necesita co
 
 ---
 
-### 7.7 Helpers del router: useParams, useNavigate, currentRoute
+### 7.8 Helpers del router: useParams, useNavigate, currentRoute
 
 Además de `useRouter()`, el router expone tres helpers de conveniencia:
 

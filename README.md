@@ -160,12 +160,12 @@ import { Show, For, Dynamic, Portal } from '@faber1999/axon.js'
 ### Router
 
 ```tsx
-import { createRouter, RouterView, Link, useRouter, useParams } from '@faber1999/axon.js'
+import { createRouter, RouterView, Link, useRouter, useParams, lazy } from '@faber1999/axon.js'
 
 createRouter(
   [
     { path: '/', component: Home },
-    { path: '/about', component: About },
+    { path: '/about', component: lazy(() => import('./pages/About')) },
 
     // Route groups — shared layout and/or guard
     {
